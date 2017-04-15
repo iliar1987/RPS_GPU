@@ -142,8 +142,6 @@ struct
     ID3D10Texture2D         *pTexture;
     ID3D10ShaderResourceView *pSRView;
     cudaGraphicsResource    *cudaResource;
-    void                    *cudaLinearMemory;
-    size_t                  pitch;
     int width;
     int height;
 } g_texture_2d;
@@ -378,7 +376,6 @@ int main(int argc, char *argv[])
     if (SUCCEEDED(InitD3D(hWnd)) &&
         SUCCEEDED(InitTextures()))
     {
-		pRPS = new RPSSim(strInitStatePath);
 
         // 2D
         // register the Direct3D resources that we'll use
@@ -388,9 +385,9 @@ int main(int argc, char *argv[])
         // cuda cannot write into the texture directly : the texture is seen as a cudaArray and can only be mapped as a texture
         // Create a buffer so that cuda can write into it
         // pixel fmt is DXGI_FORMAT_R32G32B32A32_FLOAT
-        cudaMallocPitch(&g_texture_2d.cudaLinearMemory, &g_texture_2d.pitch, g_texture_2d.width * sizeof(float) * 4, g_texture_2d.height);
-        getLastCudaError("cudaMallocPitch (g_texture_2d) failed");
-        cudaMemset(g_texture_2d.cudaLinearMemory, 1, g_texture_2d.pitch * g_texture_2d.height);
+        /*cudaMallocPitch(&g_texture_2d.cudaLinearMemory, &g_texture_2d.pitch, g_texture_2d.width * sizeof(float) * 4, g_texture_2d.height);*/
+
+		pRPS = new RPSSim(g_texture_2d.width, g_texture_2d.height);
 
         // CUBE
         cudaGraphicsD3D10RegisterResource(&g_texture_cube.cudaResource, g_texture_cube.pTexture, cudaGraphicsRegisterFlagsNone);
@@ -720,15 +717,17 @@ void RunKernels()
 
         // kick off the kernel and send the staging buffer cudaLinearMemory as an argument to allow the kernel to write to it
         //cuda_texture_2d(g_texture_2d.cudaLinearMemory, g_texture_2d.width, g_texture_2d.height, g_texture_2d.pitch, t);
-		pRPS->MakeOneRPSFrame(g_texture_2d.cudaLinearMemory, g_texture_2d.width, g_texture_2d.height, g_texture_2d.pitch, t);
+		/*pRPS->MakeOneRPSFrame(g_texture_2d.cudaLinearMemory, g_texture_2d.width, g_texture_2d.height, g_texture_2d.pitch, t);*/
 
-        getLastCudaError("cuda_texture_2d failed");
+		void* thisLinearMemory = pRPS->MakeOneRPSFrame(t);
 
+        /*getLastCudaError("cuda_texture_2d failed");
+*/
         // then we want to copy cudaLinearMemory to the D3D texture, via its mapped form : cudaArray
         cudaMemcpy2DToArray(
             cuArray, // dst array
             0, 0,    // offset
-            g_texture_2d.cudaLinearMemory, g_texture_2d.pitch,       // src
+            thisLinearMemory, pRPS->GetPitch(),       // src
             g_texture_2d.width*4*sizeof(float), g_texture_2d.height, // extent
             cudaMemcpyDeviceToDevice); // kind
         getLastCudaError("cudaMemcpy2DToArray failed");
@@ -842,13 +841,11 @@ void DrawScene()
 //-----------------------------------------------------------------------------
 void Cleanup()
 {
-	delete pRPS;
-    // unregister the Cuda resources
+	// unregister the Cuda resources
     cudaGraphicsUnregisterResource(g_texture_2d.cudaResource);
     getLastCudaError("cudaGraphicsUnregisterResource (g_texture_2d) failed");
-    cudaFree(g_texture_2d.cudaLinearMemory);
-    getLastCudaError("cudaFree (g_texture_2d) failed");
-
+	delete pRPS;
+    
     cudaGraphicsUnregisterResource(g_texture_cube.cudaResource);
     getLastCudaError("cudaGraphicsUnregisterResource (g_texture_cube) failed");
     cudaFree(g_texture_cube.cudaLinearMemory);

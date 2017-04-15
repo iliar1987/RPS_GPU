@@ -1,11 +1,24 @@
 #pragma once
 
-class RPSSimImpl;
+
 class RPSSim
 {
-	RPSSimImpl* m_impl = nullptr;
+private:
+	float* m_d_lastFrame;
+	float* m_d_thisFrame;
+	float *m_d_arrScores;
+	int m_width, m_height;
+	size_t m_pitch;
+	int RandomizeBuffer(float *d_buffer);
 public:
-	void MakeOneRPSFrame(void *surface, size_t width, size_t height, size_t pitch, float t);
-	RPSSim(const char* strInitStatePath);
+	int GetWidth() const { return m_width; }
+	int GetHeight() const { return m_height; }
+	size_t GetPitch() const { return m_pitch; }
+	RPSSim(const char *strInitStatePath);
+
+	RPSSim(int width, int height);
+
+	void* MakeOneRPSFrame(float t);
+
 	virtual ~RPSSim();
 };
