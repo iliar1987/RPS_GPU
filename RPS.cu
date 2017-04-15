@@ -22,6 +22,12 @@
 #define PI2 6.283185307179586f
 #define PI_3 1.0471975511965976f
 
+
+
+#define GET_SCORE(ARR,X,Y) ((ARR)[(X) + (Y)*width])
+#define GET_PIXEL(ARR,X,Y) ((float *)((ARR) + (Y)*pitch) + 4 * (X))
+
+
 __device__ float3 convert_one_pixel_to_rgb_f(float3 pixel) {
 	float r, g, b;
 	float h, s, v;
@@ -110,12 +116,6 @@ __global__ void kern1(unsigned char* surface, int width, int height, size_t pitc
 	pixel[3] = 1.0f;
 }
 
-#define NORM_POWER 2.0f
-#define DIFFUSION_COEFF 0.1f
-#define DIFFUSION_POWER 1.003
-#define GET_SCORE(ARR,X,Y) ((ARR)[(X) + (Y)*width])
-#define GET_PIXEL(ARR,X,Y) ((float *)((ARR) + (Y)*pitch) + 4 * (X))
-
 __global__ void K_CalcScores(const unsigned char* arrPixels,float* arrScore, int width, int height, size_t pitch)
 {
 	int x = blockIdx.x*blockDim.x + threadIdx.x ;
@@ -144,7 +144,7 @@ __global__ void K_CalcScores(const unsigned char* arrPixels,float* arrScore, int
 }
 
 
-__global__ void K_MakeNextFrame(const unsigned char* arrPixels, const float* arrScore, unsigned char *arrFrameOut, int width, int height, size_t pitch)
+__global__ void K_MakeNextFrame(const unsigned char* arrPixels, const float* arrScore, unsigned char *arrFrameOut, int width, int height, size_t pitch, const float fNormPower, const float fDiffusionPower, const float fDiffusionCoeff)
 {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -185,14 +185,14 @@ __global__ void K_MakeNextFrame(const unsigned char* arrPixels, const float* arr
 	//diffuse
 	for (int i = 0;i < 3;++i)
 	{
-		pixelResult[i] = powf(pixelChosen[i] * DIFFUSION_COEFF + pixelIn[i], DIFFUSION_POWER);
-		fSum += powf(pixelResult[i],NORM_POWER);
+		pixelResult[i] = powf(pixelChosen[i] * fDiffusionCoeff + pixelIn[i], fDiffusionPower);
+		fSum += powf(pixelResult[i], fNormPower);
 	}
 
 	//normalize
 	if (fSum != 0)
 	{
-		fSum = powf(fSum, 1.0f/NORM_POWER);
+		fSum = powf(fSum, 1.0f/ fNormPower);
 		for (int i = 0;i < 3;++i)
 		{
 			pixelResult[i] /= fSum;
@@ -251,7 +251,7 @@ RPSSim::RPSSim(int width, int height)
 		printf("Error randomizing\n");
 }
 
-void* RPSSim::MakeOneRPSFrame(float t)
+void* RPSSim::MakeOneRPSFrame(float t, const float fNormPower, const float fDiffusionPower, const float fDiffusionCoeff)
 {
 	cudaError_t error = cudaSuccess;
 
@@ -270,7 +270,7 @@ void* RPSSim::MakeOneRPSFrame(float t)
 	}
 
 	K_MakeNextFrame << <Dg, Db >> > ((unsigned char*)m_d_lastFrame, m_d_arrScores, (unsigned char*)m_d_thisFrame,
-		GetWidth(), GetHeight(), GetPitch());
+		GetWidth(), GetHeight(), GetPitch(), fNormPower, fDiffusionPower, fDiffusionCoeff);
 	error = cudaGetLastError();
 
 	if (error != cudaSuccess)

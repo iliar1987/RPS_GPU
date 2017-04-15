@@ -31,6 +31,11 @@
 
 #define MAX_EPSILON 10
 
+
+#define NORM_POWER 0.8f
+#define DIFFUSION_COEFF 0.9f
+#define DIFFUSION_POWER 1.1f
+
 static char *SDK_name = "simpleD3D10Texture";
 
 
@@ -336,7 +341,25 @@ int main(int argc, char *argv[])
     //
     while (false == g_bDone)
     {
+		LARGE_INTEGER llCount1;
+		QueryPerformanceCounter(&llCount1);
+
         Render();
+
+		LARGE_INTEGER llCount2;
+		QueryPerformanceCounter(&llCount2);
+
+		LARGE_INTEGER llFreq;
+		QueryPerformanceFrequency(&llFreq);
+
+
+		float fMilliSeconds = static_cast<float>(llCount2.QuadPart - llCount1.QuadPart) 
+			/ llFreq.QuadPart * 1000.0f;
+
+		char sWindowText[256];
+		sprintf_s<256>(sWindowText, "frame time = %.2f", fMilliSeconds);
+
+		SetWindowText(hWnd, sWindowText);
 
         //
         // handle I/O
@@ -502,8 +525,8 @@ HRESULT InitTextures()
     //
     // 2D texture
     {
-        g_texture_2d.width  = 1280;
-        g_texture_2d.height = 1024;
+        g_texture_2d.width  = 1960;
+        g_texture_2d.height = 1080;
 
         D3D10_TEXTURE2D_DESC desc;
         ZeroMemory(&desc, sizeof(D3D10_TEXTURE2D_DESC));
@@ -542,7 +565,7 @@ void RunKernels()
         cudaGraphicsSubResourceGetMappedArray(&cuArray, g_texture_2d.cudaResource, 0, 0);
         getLastCudaError("cudaGraphicsSubResourceGetMappedArray (cuda_texture_2d) failed");
 
-		void* thisLinearMemory = pRPS->MakeOneRPSFrame(t);
+		void* thisLinearMemory = pRPS->MakeOneRPSFrame(t,NORM_POWER,DIFFUSION_POWER,DIFFUSION_COEFF);
 
         // then we want to copy cudaLinearMemory to the D3D texture, via its mapped form : cudaArray
         cudaMemcpy2DToArray(
