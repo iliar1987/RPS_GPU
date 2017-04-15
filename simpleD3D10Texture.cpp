@@ -136,8 +136,6 @@ void Cleanup();
 void Render();
 
 LRESULT WINAPI MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-HWND hwndLabel;
-const int labelID = 100;
 
 #define NAME_LEN    512
 
@@ -664,7 +662,6 @@ void Render()
     //
     DrawScene();
 
-	//SendMessage(hwndLabel, WM_PAINT, 0, 0);
 }
 
 //-----------------------------------------------------------------------------
@@ -676,22 +673,6 @@ static LRESULT WINAPI MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     switch (msg)
     {
-	case WM_CREATE:
-		hwndLabel = CreateWindowEx(
-			0, "STATIC",   // predefined class 
-			NULL,         // no window title 
-			WS_CHILD | WS_VISIBLE | WS_VSCROLL |
-			ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL,
-			0, 0, 50,50,   // set size in WM_SIZE message 
-			hWnd,         // parent window 
-			(HMENU)labelID,   // edit control ID 
-			0,
-			NULL);        // pointer not needed 
-
-						  // Add text to the window. 
-		SendMessage(hwndLabel, WM_SETTEXT, 0, (LPARAM)"asdf");
-
-		return 0;
     case WM_KEYDOWN:
         if (wParam==VK_ESCAPE)
         {
