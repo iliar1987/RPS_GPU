@@ -1,0 +1,4 @@
+A simulation of rock-paper-scissors mechanics cellular automata.
+Running on the GPU.
+
+In order to run, download the CUDA 8.0 SDK and copy this repository into the simulation/ folder inside.
